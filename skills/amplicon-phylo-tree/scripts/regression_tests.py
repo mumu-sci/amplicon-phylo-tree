@@ -28,6 +28,7 @@ Why these particular cases exist (they are all reproducible bugs, not theory):
       used to be granted a PASS.
 """
 import os
+import json
 import re
 import shutil
 import subprocess
@@ -47,42 +48,94 @@ BL = os.path.join(HERE, "blocks.py")
 SKILL_MD = os.path.join(HERE, os.pardir, "SKILL.md")
 REFS_MD = os.path.join(HERE, os.pardir, "references")
 
-# A stand-in for `hmmsearch`, written in Python so the M9 test does not need
-# HMMER installed.  It writes the domtblout that the coverage criterion reads:
-# "split" gives four sequences a full-length domain alignment and four a partial
-# one; "uniform" gives all of them the same span.  Query length (field 3) is what
-# the coverage fraction is measured against.
-FAKE_HMM = '''import sys
+# A stand-in for `hmmsearch`, written in Python so the M9/M10 tests do not need
+# HMMER installed.  It writes a real-shaped HMMER3 --domtblout (22 columns, the
+# same layout the parser documents) that the coverage criterion reads.
+#
+# Two things are NOT invented here:
+#   * qlen (column 6) and the alignment coordinates (columns 20-21) are derived
+#     from the query lengths in the profile, so the coverage fraction follows.
+#   * the sequence's own length comes from the FASTA it is handed.
+# That matters, because a fake that fabricated a length difference would let the
+# coverage criterion "pass" for the wrong reason.  With a profile supplied, the
+# sequences can be the SAME length and the only signal left is how much of the
+# read the domain alignment covers.
+FAKE_HMM = '''import json, os, sys
 a = sys.argv[1:]
 out = [a[i + 1] for i, x in enumerate(a) if x == "--domtblout"][0]
 fa = a[-1]
-names = [l[1:].strip().split()[0] for l in open(fa) if l.startswith(">")]
+prof = {}
+pp = os.environ.get("DSH_FAKE_HMM_PROFILE")
+if pp and os.path.exists(pp):
+    prof = json.load(open(pp))
+mode = prof.get("mode", "split")
+low = set(prof.get("low_qlen_ids", ["s5", "s6", "s7", "s8"]))
+hmm_len = int(prof.get("hmm_len", 100))
+seqs, name = {}, None
+for line in open(fa):
+    line = line.rstrip("\\n")
+    if line.startswith(">"):
+        name = line[1:].strip().split()[0]
+        seqs[name] = ""
+    elif name:
+        seqs[name] += line.strip()
 rows = []
-for n in names:
-    if "%(mode)s" == "split" and n not in ("s1", "s2", "s3", "s4"):
-        qlen, span = 200, 70
+for n in seqs:
+    L = len(seqs[n])                        # this is a PROTEIN length
+    if mode == "split" and n in low:
+        qlen = int(prof.get("qlen_low", 60))
     else:
-        qlen, span = 300, 300
-    rows.append("%%s - 300 Fer4_NifH - 300 1e-60 200.0 0.0 1 1 1e-60 1e-60 "
-                "1 %%d 1 300 1 %%d 1 300 0.99 1 100" %% (n, qlen, span))
+        qlen = int(prof.get("qlen_high", 200))
+    ali_from, ali_to = 1, min(L, qlen)      # how much of the sequence the domain covers
+    span = ali_to - ali_from + 1
+    rows.append(" ".join(str(x) for x in (
+        n, "-", L, "Fer4_NifH", "-", qlen, "1e-60", "200.0", "0.0",
+        1, 1, "1e-60", "1e-60", "200.0", "0.0", 1, 1,
+        hmm_len, 1, hmm_len, ali_from, ali_to, 1, 1, span, ali_from, ali_to,
+        0.99, hmm_len, "1", "100")))
 open(out, "w").write("\\n".join(rows) + "\\n")
 '''
 
 
-def write_fake_hmm(path, mode):
+def hmm_profile(tmp, qlen_low, qlen_high, low_ids=None, hmm_len=100):
+    """A profile for the stand-in hmmsearch: which sequences get the SHORT query.
+
+    `qlen` here is the SEQUENCE (query) length in the dummy table, which is what the
+    coverage fraction is measured against; the domain alignment spans
+    min(sequence_length, qlen) of the read.
+    """
+    prof = {"mode": "split", "qlen_low": qlen_low, "qlen_high": qlen_high,
+            "hmm_len": hmm_len}
+    if low_ids is not None:
+        prof["low_qlen_ids"] = low_ids
+    p = os.path.join(tmp, "profile.json")
+    with open(p, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(prof, fh)
+    return p
+
+
+def write_fake_hmm(path, mode, profile=None):
     """Write the stand-in hmmsearch and return the path to hand to the code.
 
-    On Windows a .py file is not directly executable, so a tiny .cmd wrapper is
-    written next to it; on POSIX the script is chmod'ed instead.
+    POSIX must be able to exec it, so the script carries a shebang and is chmod
+    755.  On Windows a .py file is not directly executable, so a tiny .cmd wrapper
+    is written next to it.  (Forgetting the shebang let this test pass locally and
+    fail on Linux CI with "[Errno 8] Exec format error" -- precisely the kind of
+    platform hole CI exists to catch.)
     """
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("#!%s\n" % PY)
         fh.write(FAKE_HMM % {"mode": mode})
+    os.chmod(path, 0o755)
+    if profile is not None:
+        with open(path[:-3] + "profile.json", "w", encoding="utf-8",
+                  newline="\n") as fh:
+            json.dump(profile, fh)
     if os.name == "nt":
         cmd = path[:-3] + ".cmd"
         with open(cmd, "w", encoding="ascii", newline="\r\n") as fh:
             fh.write('@"%s" "%s" %%*\n' % (PY, path))
         return cmd
-    os.chmod(path, 0o755)
     return path
 
 
@@ -699,50 +752,68 @@ def passes(out):
 @test("M9", "equal-length sequences with a split domain-coverage pattern are caught")
 def t_m9(tmp):
     j = os.path.join(tmp, "a.json")
-    fake = write_fake_hmm(os.path.join(tmp, "fake_split.py"), "split")
-    # all reads are 300 bp, so the length-histogram criterion CANNOT fire; the
-    # half that only covers part of the domain is the only signal there is
-    fa, hmm = audit_fixture(tmp, [300] * 8)
+    # EVERY read is 240 bp.  The length-histogram criterion therefore cannot fire,
+    # so if the mixture is caught at all it is the coverage channel that caught it.
+    # The profile says the domain HMM is long for one half of the reads and short
+    # for the other, i.e. the same primer pair would have to amplify two different
+    # parts of the marker.
+    fa, hmm = audit_fixture(tmp, [240] * 8)
+    prof = hmm_profile(tmp, qlen_low=150, qlen_high=320)
+    fake = write_fake_hmm(os.path.join(tmp, "fake_split.py"), "split", prof)
     code, out = run_with([AI, "--fasta", fa, "--marker-class", "coding",
                           "--hmm", hmm, "--json", j],
-                         DSH_HMMSEARCH=fake)
+                         DSH_HMMSEARCH=fake, DSH_FAKE_HMM_PROFILE=prof)
     if code == 0:
-        return False, ("a same-length mixture was passed: the domain-coverage "
-                       "criterion is not wired in:\n" + out)
+        return False, ("an equal-length mixture with a split domain-coverage "
+                       "pattern was passed: the coverage criterion is not wired "
+                       "in:\n" + out)
+    if "length modes" not in out or "only one populated bin" not in out:
+        return False, ("the length criterion DID fire, so this case does not "
+                       "isolate the coverage channel:\n" + out)
     if "coverage" not in out.lower():
         return False, "the failure does not name the coverage criterion:\n" + out
-    import json
     rec = json.load(open(j, encoding="utf-8"))
     crit = rec["mixed_region"]["criteria"]
     if crit.get("hmm_domain_coverage") is None:
         return False, "the coverage numbers are not in the machine-readable report"
-    if crit["hmm_domain_coverage"]["n_low"] < 1 \
-            or crit["hmm_domain_coverage"]["n_high"] < 1:
+    cov = crit["hmm_domain_coverage"]
+    if cov["n_low"] < 1 or cov["n_high"] < 1:
         return False, "the coverage split was not reported as two groups"
+    if cov["len_difference"] != 0:
+        return False, ("the two coverage groups differ in length (%s), so the "
+                       "length criterion could have been the trigger instead"
+                       % cov["len_difference"])
 
-    # reverse control: a uniform coverage pattern must NOT be called a mixture
-    fake2 = write_fake_hmm(os.path.join(tmp, "fake_uniform.py"), "uniform")
+    # reverse control: a uniform domain model over the same reads must NOT be
+    # called a mixture, or the criterion fires on nothing
+    prof2 = hmm_profile(tmp, qlen_low=300, qlen_high=300)
+    fake2 = write_fake_hmm(os.path.join(tmp, "fake_uniform.py"), "split", prof2)
     j2 = os.path.join(tmp, "b.json")
     code2, out2 = run_with([AI, "--fasta", fa, "--marker-class", "coding",
                             "--hmm", hmm, "--json", j2],
-                           DSH_HMMSEARCH=fake2)
+                           DSH_HMMSEARCH=fake2, DSH_FAKE_HMM_PROFILE=prof2)
     if not passes(out2):
         return False, ("a uniform coverage pattern was still rejected -- the "
                        "criterion fires on nothing:\n" + out2)
-    return True, ("a same-length split is caught by the coverage channel and a uniform pattern is not")
+    return True, ("an equal-length split is caught by the coverage channel alone, "
+                  "and a uniform pattern is not")
 
 
 @test("M10", "--region-map is read, validated, and recorded with a hash")
 def t_m10(tmp):
+    # two length classes so the mixed-region verdict is unambiguous; the region map
+    # is what this test is about
     fa, hmm = audit_fixture(tmp, [200] * 4 + [80] * 4)
-    fake = write_fake_hmm(os.path.join(tmp, "fake.py"), "uniform")
+    prof = hmm_profile(tmp, qlen_low=300, qlen_high=300)
+    fake = write_fake_hmm(os.path.join(tmp, "fake.py"), "split", prof)
+    env = {"DSH_HMMSEARCH": fake, "DSH_FAKE_HMM_PROFILE": prof}
+    import json
 
     one_col = os.path.join(tmp, "one.map")
     write(one_col, "s1\ns2\n")
     code, out = run_with([AI, "--fasta", fa, "--marker-class", "coding",
                           "--hmm", hmm, "--mixed-region-ok",
-                          "--region-map", one_col],
-                         DSH_HMMSEARCH=fake)
+                          "--region-map", one_col], **env)
     if code != 2:
         return False, ("a one-column region map gave exit %d, expected 2:\n%s"
                        % (code, out))
@@ -751,8 +822,7 @@ def t_m10(tmp):
     write(unknown, "".join("s%d\tR1\n" % i for i in range(1, 8)) + "zzz\tR1\n")
     code2, out2 = run_with([AI, "--fasta", fa, "--marker-class", "coding",
                             "--hmm", hmm, "--mixed-region-ok",
-                            "--region-map", unknown],
-                           DSH_HMMSEARCH=fake)
+                            "--region-map", unknown], **env)
     if code2 != 2:
         return False, ("a region map naming an id absent from the FASTA gave exit "
                        "%d, expected 2:\n%s" % (code2, out2))
@@ -762,11 +832,9 @@ def t_m10(tmp):
     j = os.path.join(tmp, "good.json")
     code3, out3 = run_with([AI, "--fasta", fa, "--marker-class", "coding",
                             "--hmm", hmm, "--mixed-region-ok",
-                            "--region-map", good, "--json", j],
-                           DSH_HMMSEARCH=fake)
+                            "--region-map", good, "--json", j], **env)
     if code3 != 0:
         return False, "a valid two-column region map was rejected:\n" + out3
-    import json
     rm = json.load(open(j, encoding="utf-8")).get("region_map")
     if not rm:
         return False, "the region map is still decorative: nothing in the report"
@@ -778,12 +846,12 @@ def t_m10(tmp):
     # reverse control: a waiver WITHOUT a map has no traceability and must fail
     code4, out4 = run_with([AI, "--fasta", fa, "--marker-class", "coding",
                             "--hmm", hmm, "--mixed-region-ok",
-                            "--json", os.path.join(tmp, "nomap.json")],
-                           DSH_HMMSEARCH=fake)
+                            "--json", os.path.join(tmp, "nomap.json")], **env)
     if code4 == 0:
         return False, ("--mixed-region-ok without --region-map passed, although the "
                        "region labels are recorded nowhere:\n" + out4)
-    return True, ("map read and validated, sha256 and region counts recorded, and a map-less waiver fails")
+    return True, ("map read and validated, sha256 and region counts recorded, and a "
+                  "map-less waiver fails")
 
 
 # ------------------------------------------------------------------ M6/M7 ----

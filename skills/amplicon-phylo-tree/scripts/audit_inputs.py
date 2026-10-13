@@ -200,14 +200,21 @@ def hmm_coverage_profile(seqs, tmpdir):
             f = line.split()
             if len(f) < 22:
                 continue
+            # HMMER3 --domtblout columns (1-based): 1 target, 3 tlen, 4 query,
+            # 6 qlen, 13 i-Evalue, 14 domain score, 18-19 hmm from/to,
+            # 20-21 ali from/to (query coordinates), 22-23 env from/to.
             try:
                 score = float(f[13])
-                ali_from, ali_to = int(f[17]), int(f[18])
-                qlen = int(f[2])
+                qlen = int(f[5])                        # the SEQUENCE length
+                ali_from, ali_to = int(f[19]), int(f[20])   # query coordinates
             except (ValueError, IndexError):
                 continue
             span = abs(ali_to - ali_from) + 1
-            # fraction of the whole sequence that the domain alignment covers
+            # fraction of the read that the domain alignment covers.  Measuring
+            # this against the HMM length instead was a real bug: it reported how
+            # much of the MODEL a hit spans, which is ~the same for every sequence
+            # and therefore blind to exactly the same-length mixture this criterion
+            # exists for.
             cov = span / qlen if qlen else 0.0
             prev = profile.get(f[0])
             if prev is None or score > prev["score"]:

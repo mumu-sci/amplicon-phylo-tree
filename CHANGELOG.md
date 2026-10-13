@@ -93,7 +93,12 @@ These are the reason v1.0.0 was not safe to follow as written. Each one made a r
   land next to the input FASTA. It is removed first and defaults to the system temp.
 - **M9** the mixed-region test only looked at length bimodality, so two regions of
   the same length slipped through. Domain-coverage grouping and composition grouping
-  were added.
+  were added. While re-testing this, a second defect in the same code was found and
+  fixed: the coverage fraction was computed from the HMM length and the HMM's own
+  coordinates instead of the **query** length and coordinates, so it reported how
+  much of the *model* a hit spanned (~the same for every sequence) rather than how
+  much of the *read* the domain covered. That made the new criterion blind to
+  exactly the same-length mixture it exists for.
 - **M10** `--region-map` was decorative: never read, never validated, never
   recorded. It is now parsed, checked against the input ids, and recorded with a
   SHA256; a waiver without a map counts as an unchecked item.
