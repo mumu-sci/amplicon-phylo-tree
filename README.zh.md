@@ -68,6 +68,36 @@ python scripts/regression_tests.py      # 黑箱回归测试（v1.0.1 为 36 条
 python scripts/selftest.py              # 坐标与遗传密码契约
 ```
 
+### DeepSeek Harness（DSH）
+
+DSH **没有技能市场**：它靠扫描固定目录里的 `<name>/SKILL.md` 来发现技能，所以"安装"= 把文件夹放进这些根目录之一。最省事的一条命令：
+
+```bash
+git clone --depth 1 https://github.com/mumu-sci/amplicon-phylo-tree /tmp/aph \
+  && cp -r /tmp/aph/skills/amplicon-phylo-tree ~/.agents/skills/
+```
+
+```powershell
+# 或走仓库自带的安装器（会顺手清理 __pycache__ 并校验装出来的副本）
+git clone --depth 1 https://github.com/mumu-sci/amplicon-phylo-tree $env:TEMP\aph
+pwsh -File $env:TEMP\aph\install.ps1        # 或：bash install.sh
+```
+
+**DSH 的扫描优先级**（先命中者胜）：
+
+| 优先级 | 来源 | 路径 |
+|---|---|---|
+| 100 | 项目 `.dsh` | `<项目根>/.dsh/skills` |
+| 200 | 项目 `.agents` | `<项目根>/.agents/skills` |
+| 300 | 自定义 | 你的 `customSkillDirs` 配置 |
+| 400 | 用户 `.dsh` | `~/.dsh/skills` |
+| 500 | 用户 `.agents` | `~/.agents/skills`（受 `DSH_AGENTS_HOME` 影响） |
+| 600 | 随客户端自带 | `bundledSkillDir` / `DSH_BUNDLED_SKILL_DIR` |
+
+项目根 = 最近的含 `.git` 的祖先目录。用项目级那两行可以把某个版本钉在单个项目里（`bash install.sh --project`），用用户级那两行则对所有项目可用。
+
+> 只有 600 这一档能让**每个 DSH 用户开箱即用**，而那份清单在客户端发行包里维护，第三方加不进去。如果你觉得这个技能够格进那份清单，在本仓库开个 issue 说明，我们可以一起找客户端维护者提。
+
 ## 已知局限（照实写）
 
 - **FastTree 是近似 ML**：它的支持率是 SH-like 局部检验，**不可**与 UFBoot2 / SH-aLRT 横向比较。
