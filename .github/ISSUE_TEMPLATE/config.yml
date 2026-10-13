@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "Usage questions and routing choices"
+    url: "https://github.com/"
+    about: "Read SKILL.md first: it answers the routing questions (tree role, marker class, scale). Bug reports should include the skill version and the tool log."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Amplicon Phylo Tree"
+  short_description: "Build a defensible phylogenetic tree from amplicon data"
+  default_prompt: "Use $amplicon-phylo-tree to build a phylogenetic tree from my amplicon data (16S / ITS / nifH / other), deciding the parameters for my study, auditing the input, and producing the tree plus a methods paragraph."

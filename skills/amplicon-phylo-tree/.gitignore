@@ -1,0 +1,6 @@
+# Byte-compiled Python that a local run leaves behind.  These files embed the
+# absolute path of the checkout in their code objects, so they must never be
+# committed and never be copied into an installed skill folder.
+__pycache__/
+*.pyc
+.DS_Store

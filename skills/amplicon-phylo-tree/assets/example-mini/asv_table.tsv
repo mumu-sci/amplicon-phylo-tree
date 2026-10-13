@@ -1,0 +1,21 @@
+#OTU ID	S01	S02	S03	S04	S05	S06	S07	S08	S09	S10	S11	S12	taxonomy
+ASV0001	75.0	160.0	277.0	179.0	65.0	111.0	56.0	184.0	173.0	176.0	190.0	109.0	k__Bacteria; p__Proteobacteria; c__Alphaproteobacteria; g__Rhizobium
+ASV0002	284.0	67.0	253.0	227.0	155.0	201.0	88.0	80.0	175.0	162.0	225.0	226.0	k__Bacteria; p__Proteobacteria; c__Betaproteobacteria; g__Burkholderia
+ASV0003	154.0	220.0	287.0	64.0	251.0	145.0	116.0	132.0	197.0	112.0	91.0	211.0	k__Bacteria; p__Cyanobacteria; c__Nostocales; g__Nostoc
+ASV0004	162.0	287.0	64.0	265.0	272.0	111.0	243.0	220.0	186.0	261.0	95.0	104.0	k__Bacteria; p__Firmicutes; c__Bacilli; g__Paenibacillus
+ASV0005	135.0	255.0	81.0	292.0	131.0	61.0	194.0	227.0	56.0	250.0	217.0	267.0	k__Bacteria; p__Actinobacteria; c__Actinomycetia; g__Frankia
+ASV0006	300.0	291.0	243.0	68.0	128.0	269.0	119.0	251.0	50.0	171.0	177.0	173.0	k__Bacteria; p__Proteobacteria; c__Alphaproteobacteria; g__Rhizobium
+ASV0007	0.0	51.0	34.0	0.0	0.0	86.0	59.0	0.0	27.0	62.0	30.0	0.0	k__Bacteria; p__Proteobacteria; c__Betaproteobacteria; g__Burkholderia
+ASV0008	79.0	47.0	90.0	52.0	56.0	76.0	66.0	46.0	57.0	17.0	39.0	0.0	k__Bacteria; p__Cyanobacteria; c__Nostocales; g__Nostoc
+ASV0009	0.0	0.0	0.0	0.0	0.0	0.0	0.0	18.0	56.0	32.0	0.0	67.0	k__Bacteria; p__Firmicutes; c__Bacilli; g__Paenibacillus
+ASV0010	47.0	21.0	0.0	49.0	24.0	0.0	40.0	60.0	0.0	0.0	64.0	0.0	k__Bacteria; p__Actinobacteria; c__Actinomycetia; g__Frankia
+ASV0011	81.0	18.0	38.0	0.0	0.0	0.0	86.0	0.0	58.0	79.0	47.0	0.0	k__Bacteria; p__Proteobacteria; c__Alphaproteobacteria; g__Rhizobium
+ASV0012	46.0	59.0	0.0	12.0	68.0	0.0	0.0	50.0	30.0	82.0	37.0	0.0	k__Bacteria; p__Proteobacteria; c__Betaproteobacteria; g__Burkholderia
+ASV0013	4.0	0.0	6.0	0.0	3.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	k__Bacteria; p__Cyanobacteria; c__Nostocales; g__Nostoc
+ASV0014	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	k__Bacteria; p__Firmicutes; c__Bacilli; g__Paenibacillus
+ASV0015	0.0	0.0	0.0	0.0	0.0	1.0	0.0	1.0	0.0	0.0	0.0	0.0	k__Bacteria; p__Actinobacteria; c__Actinomycetia; g__Frankia
+ASV0016	0.0	3.0	0.0	2.0	2.0	5.0	0.0	0.0	2.0	0.0	1.0	0.0	k__Bacteria; p__Proteobacteria; c__Alphaproteobacteria; g__Rhizobium
+ASV0017	5.0	0.0	5.0	6.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	k__Bacteria; p__Proteobacteria; c__Betaproteobacteria; g__Burkholderia
+ASV0018	6.0	0.0	0.0	0.0	0.0	3.0	0.0	0.0	0.0	0.0	0.0	0.0	Unclassified
+ASV0019	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	Unclassified
+ASV0020	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	Unclassified

@@ -1,0 +1,5 @@
+# The review record and the handoff document are internal working notes; they are
+# not part of the published skill.  Keeping them out of the repository (rather than
+# deleting them) preserves the audit trail without shipping it.
+review/
+HANDOFF.md
