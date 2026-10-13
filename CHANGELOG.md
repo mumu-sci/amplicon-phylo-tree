@@ -4,12 +4,73 @@ All notable changes to this skill. Versions are for the skill folder
 (`skills/amplicon-phylo-tree`); the repository layout, READMEs and this file are not
 versioned separately.
 
+## v1.0.3 - installable by other clients
+
+No change to the analysis itself.  This release is about the skill reaching users
+of other agent clients and being installable without reading a README end to end.
+
+### Fixed
+
+- **The `SKILL.md` frontmatter was not valid YAML.** `description` and
+  `compatibility` contained unquoted colons, which the line-based validator used
+  during development accepts but a real YAML parser rejects.  The universal skills
+  CLI therefore skipped the skill entirely (`YAML parse error: Nested mappings are
+  not allowed in compact mappings`), making it invisible to every client that
+  installs through that tool.  Both values are now single-quoted (internal quotes
+  doubled), and a dependency-free check plus a regression test keep them that way.
+
+### Added
+
+- **`install.sh` / `install.ps1`** - install into the right skills root for the
+  client in use (project-level or user-level), refuse to overwrite a copy you have
+  edited, strip `__pycache__` (a `.pyc` embeds the installing machine's absolute
+  path), and run the verification commands on what they installed.
+- **A client-by-client directory table** in both READMEs: OpenCode, Claude Code,
+  Codex, Cursor, Cline, Windsurf and DSH, plus the note that `.agents/skills/` is
+  the shared location five of them read.
+
+### Verified
+
+- `npx skills add mumu-sci/amplicon-phylo-tree@amplicon-phylo-tree` now lists the
+  skill (`Found 1 skill`) and installs it for every client it detects, into
+  `.agents/skills/` and `.claude/skills/`.
+- The copy that CLI installed passes the repository's own checks unchanged:
+  `selftest.py` PASS, `check_consistency.py` PASS (6 groups),
+  `regression_tests.py` 37/37 PASS.
+
+## v1.0.2 - CI runs the smoke test, and a coverage metric was wrong
+
+Both defects in this release were found by running CI on Linux, which is the point
+of having it.
+
+### Fixed
+
+- **The mixed-region domain-coverage metric computed the wrong fraction.** It used
+  the HMM length and the HMM's own coordinates instead of the **query** length and
+  coordinates, i.e. it measured how much of the *model* a hit spanned -- roughly the
+  same for every sequence -- rather than how much of the *read* the domain covered.
+  The same-length mixture the criterion exists to detect went undetected. It now
+  reads `qlen` (column 6) and the alignment from/to (columns 20-21).
+- **The marker-peptide stand-in used by the M9/M10 tests was not executable on
+  POSIX** (chmod without a shebang): it passed on Windows and failed on Linux with
+  `[Errno 8] Exec format error`. The fixture was also made honest -- it no longer
+  invents a length difference, so the coverage criterion can only fire on real
+  coverage.
+
+### Added
+
+- The end-to-end smoke test moved out of the workflow body into
+  `skills/amplicon-phylo-tree/scripts/smoke_test.sh`, so it can be edited with an
+  ordinary commit (a workflow file needs the `workflow` token scope), and CI now
+  installs MAFFT and FastTree so it actually runs instead of skipping. Both Python
+  jobs report `baseline reproduced: 556 columns, 46.04% gaps`.
+
 ## v1.0.1 — adversarial-review release
 
 Two rounds of adversarial scientific review (design layer, then implementation
 layer) found 10 blocking + 13 major + 9 minor defects in v1.0.0. This release fixes
 all 10 blocking issues and the major ones that had machine-checkable consequences,
-adds a 36-test black-box regression suite, and adds `check_consistency.py`, which
+adds a black-box regression suite (37 tests after v1.0.3), and adds `check_consistency.py`, which
 turns "the documentation promises X, the script does Y" into a failing test.
 
 ### The three "false passes" this release exists to eliminate

@@ -51,7 +51,7 @@ The folder **must** stay named `amplicon-phylo-tree`: that name has to match the
 cd <your-skills-dir>/amplicon-phylo-tree
 python scripts/selftest.py            # coordinate, stop and genetic-code contract
 python scripts/check_consistency.py   # documentation vs scripts agree
-python scripts/regression_tests.py    # black-box regression tests
+python scripts/regression_tests.py    # black-box regression tests (37)
 ```
 
 ### Where each client looks

@@ -5,7 +5,7 @@ compatibility: 'Requires MAFFT and FastTree or IQ-TREE; HMMER and/or BLAST+ for 
 license: MIT
 metadata:
   author: Mumu (github.com/mumu-sci)
-  version: 1.0.1
+  version: 1.0.3
   category: bioinformatics
   tags: [phylogenetics, amplicon, 16S, ITS, nifH, ecology, MAFFT, FastTree, IQ-TREE]
 ---

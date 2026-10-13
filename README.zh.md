@@ -64,7 +64,7 @@ cp -r skills/amplicon-phylo-tree <你的 skills 目录>/amplicon-phylo-tree
 ```bash
 cd skills/amplicon-phylo-tree
 python scripts/check_consistency.py     # 文档与脚本是否一致
-python scripts/regression_tests.py      # 黑箱回归测试（v1.0.1 为 36 条）
+python scripts/regression_tests.py      # 黑箱回归测试（当前 37 条）
 python scripts/selftest.py              # 坐标与遗传密码契约
 ```
 

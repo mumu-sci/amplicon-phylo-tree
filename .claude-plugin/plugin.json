@@ -1,7 +1,7 @@
 {
   "name": "amplicon-phylo-tree",
   "description": "Build defensible, publishable phylogenetic trees from second-generation amplicon data (16S/18S, ITS, nifH/amoA/COI): parameter decisions recorded per study, input audit, alignment QC, model/type assertion, rooting, and acceptance gates.",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "author": {
     "name": "Mumu",
     "url": "https://github.com/mumu-sci"
