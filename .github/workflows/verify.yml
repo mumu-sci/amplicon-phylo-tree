@@ -24,20 +24,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install the external tools the smoke test needs
-        # The smoke test is the only check that proves the documented baseline
-        # (20 -> 15 taxa, 556 columns, 46.04% gaps) still holds.  Skipping it on
-        # every run would make the strongest check decorative, so install the
-        # tools.  If the runner cannot reach a package mirror, say so loudly and
-        # carry on: the checks below still have to pass.
-        run: |
-          sudo apt-get update -qq || true
-          if sudo apt-get install -y -qq mafft fasttree; then
-            mafft --version | head -1
-          else
-            echo "::warning::could not install MAFFT/FastTree - the smoke test will be skipped"
-          fi
-
       - name: Skill self-test (coordinate contract, stops, genetic codes)
         working-directory: skills/amplicon-phylo-tree
         run: python scripts/selftest.py
@@ -65,29 +51,19 @@ jobs:
 
       - name: End-to-end smoke test (needs MAFFT and FastTree)
         working-directory: skills/amplicon-phylo-tree
-        # Alignment and tree inference are external tools; without them this step
-        # SKIPS LOUDLY rather than reporting a pass it did not earn.
+        # The logic lives in scripts/smoke_test.sh so it can be edited with an
+        # ordinary commit: a workflow file needs the `workflow` token scope, a
+        # script does not.  Exit 2 from the script means the tools were missing,
+        # which is a LOUD skip (a warning annotation), not a silent pass.
         run: |
-          if ! command -v mafft >/dev/null || ! command -v fasttree >/dev/null; then
-            echo "::warning::MAFFT or FastTree missing - the end-to-end smoke test did NOT run"
+          sudo apt-get update -qq || true
+          sudo apt-get install -y -qq mafft fasttree || true
+          set +e
+          bash scripts/smoke_test.sh
+          rc=$?
+          set -e
+          if [ "$rc" -eq 2 ]; then
+            echo "::warning::MAFFT/FastTree unavailable - the smoke test did NOT run"
             exit 0
           fi
-          P=assets/example-mini
-          W=$(mktemp -d)
-          python scripts/define_taxa.py --table $P/asv_table.tsv --rule 'sum>=10' \
-            --fasta $P/rep_set.fasta --out-ids $W/kept.ids --out-fasta $W/kept.fasta \
-            --log $W/taxa.log
-          test "$(grep -c '^>' $W/kept.fasta)" = "15"
-          mafft --auto --quiet --thread 2 $W/kept.fasta > $W/aln.fasta
-          python scripts/aln_qc.py --aln $W/aln.fasta --fasta-raw $W/kept.fasta \
-            --marker-class rrna --json $W/aln.json
-          python -c "
-          import json, sys
-          d = json.load(open(sys.argv[1]))
-          assert d['columns'] == 556, d['columns']
-          assert abs(d['gap_fraction'] - 0.4604) < 5e-4, d['gap_fraction']
-          print('baseline reproduced:', d['columns'], 'columns,', round(100*d['gap_fraction'], 2), '% gaps')
-          " $W/aln.json
-          fasttree -nt -gtr -gamma $W/aln.fasta > $W/tree.nwk 2> $W/tree.log
-          python scripts/verify_tree.py --aln $W/aln.fasta --seqtype nt --tool fasttree \
-            --tool-log $W/tree.log --ids $W/kept.ids --unrooted $W/tree.nwk
+          exit "$rc"
