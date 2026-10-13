@@ -1,0 +1,79 @@
+name: verify
+
+# Every push and pull request re-runs the checks that this project's own review
+# found necessary.  The point is not "tests pass" as decoration: it is that
+# documentation and scripts cannot drift apart again (R2's B4/M3 were exactly
+# "the doc promised a flag the script never accepted").
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Skill self-test (coordinate contract, stops, genetic codes)
+        working-directory: skills/amplicon-phylo-tree
+        run: python scripts/selftest.py
+
+      - name: Documentation vs scripts consistency
+        working-directory: skills/amplicon-phylo-tree
+        run: python scripts/check_consistency.py
+
+      - name: Regression tests (black-box, one per defect found by review)
+        working-directory: skills/amplicon-phylo-tree
+        run: python scripts/regression_tests.py
+
+      - name: The bundled example really is reproducible
+        working-directory: skills/amplicon-phylo-tree
+        # README and the smoke test both promise these two files are byte-identical
+        # to what the generator produces. If that ever stops being true, the
+        # documented baseline numbers are not reproducible either.
+        run: |
+          rm -rf /tmp/regen && mkdir -p /tmp/regen
+          cp assets/example-mini/_make_example.py /tmp/regen/
+          (cd /tmp/regen && python _make_example.py)
+          cmp /tmp/regen/asv_table.tsv assets/example-mini/asv_table.tsv
+          cmp /tmp/regen/rep_set.fasta assets/example-mini/rep_set.fasta
+          echo "example-mini regenerates byte-identically"
+
+      - name: End-to-end smoke test (needs MAFFT and FastTree)
+        working-directory: skills/amplicon-phylo-tree
+        # Alignment and tree inference are external tools; without them this step
+        # SKIPS LOUDLY rather than reporting a pass it did not earn.
+        run: |
+          if ! command -v mafft >/dev/null || ! command -v fasttree >/dev/null; then
+            echo "::warning::MAFFT or FastTree missing - the end-to-end smoke test did NOT run"
+            exit 0
+          fi
+          P=assets/example-mini
+          W=$(mktemp -d)
+          python scripts/define_taxa.py --table $P/asv_table.tsv --rule 'sum>=10' \
+            --fasta $P/rep_set.fasta --out-ids $W/kept.ids --out-fasta $W/kept.fasta \
+            --log $W/taxa.log
+          test "$(grep -c '^>' $W/kept.fasta)" = "15"
+          mafft --auto --quiet --thread 2 $W/kept.fasta > $W/aln.fasta
+          python scripts/aln_qc.py --aln $W/aln.fasta --fasta-raw $W/kept.fasta \
+            --marker-class rrna --json $W/aln.json
+          python -c "
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          assert d['columns'] == 556, d['columns']
+          assert abs(d['gap_fraction'] - 0.4604) < 5e-4, d['gap_fraction']
+          print('baseline reproduced:', d['columns'], 'columns,', round(100*d['gap_fraction'], 2), '% gaps')
+          " $W/aln.json
+          fasttree -nt -gtr -gamma $W/aln.fasta > $W/tree.nwk 2> $W/tree.log
+          python scripts/verify_tree.py --aln $W/aln.fasta --seqtype nt --tool fasttree \
+            --tool-log $W/tree.log --ids $W/kept.ids --unrooted $W/tree.nwk
