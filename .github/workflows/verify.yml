@@ -24,6 +24,20 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install the external tools the smoke test needs
+        # The smoke test is the only check that proves the documented baseline
+        # (20 -> 15 taxa, 556 columns, 46.04% gaps) still holds.  Skipping it on
+        # every run would make the strongest check decorative, so install the
+        # tools.  If the runner cannot reach a package mirror, say so loudly and
+        # carry on: the checks below still have to pass.
+        run: |
+          sudo apt-get update -qq || true
+          if sudo apt-get install -y -qq mafft fasttree; then
+            mafft --version | head -1
+          else
+            echo "::warning::could not install MAFFT/FastTree - the smoke test will be skipped"
+          fi
+
       - name: Skill self-test (coordinate contract, stops, genetic codes)
         working-directory: skills/amplicon-phylo-tree
         run: python scripts/selftest.py
