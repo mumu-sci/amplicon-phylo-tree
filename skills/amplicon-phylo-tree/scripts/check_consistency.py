@@ -492,6 +492,75 @@ def check_routes():
     return (not msgs), msgs
 
 
+# --------------------------------------------------- 5. frontmatter is YAML --
+
+def check_frontmatter():
+    """Frontmatter must survive a STRICT YAML parser, not just a naive one.
+
+    Why this is its own check: `description` and `compatibility` are free text, and
+    a colon inside them ("Chinese trigger words: ...") makes the block invalid YAML
+    while a line-based parser happily accepts it.  The universal skills CLI uses a
+    real parser and skipped this whole skill with
+
+        YAML parse error: Nested mappings are not allowed in compact mappings
+
+    so the skill was invisible to every client that goes through that tool.  This
+    check is dependency-free on purpose: tooling must not need PyYAML installed to
+    catch it.
+    """
+    msgs = []
+    path = os.path.join(SKILL, "SKILL.md")
+    if not os.path.exists(path):
+        return False, ["SKILL.md is missing"]
+    text = read(path)
+    if not text.startswith("---"):
+        return False, ["SKILL.md does not start with YAML frontmatter"]
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return False, ["SKILL.md frontmatter is not closed"]
+    block = parts[1]
+
+    plain = re.compile(r"^[A-Za-z_][A-Za-z0-9_./-]*$")
+    seen = {}
+    for lineno, raw in enumerate(block.splitlines(), 1):
+        if not raw.strip() or raw.lstrip().startswith("#"):
+            continue
+        if raw[0] in " \t":
+            continue                       # indented: part of a mapping/list
+        if ":" not in raw:
+            msgs.append("frontmatter line %d has no key: %r" % (lineno, raw[:60]))
+            continue
+        key, _, val = raw.partition(":")
+        key, val = key.strip(), val.strip()
+        if not plain.match(key):
+            msgs.append("frontmatter key %r is not a plain scalar" % key)
+        seen[key] = val
+        if not val:
+            continue                       # a mapping header, e.g. 'metadata:'
+        if val[0] in "\"'":
+            if len(val) < 2 or not val.endswith(val[0]):
+                msgs.append("frontmatter %r has an unterminated quoted value" % key)
+            continue
+        # an unquoted scalar: reject the constructs that silently change meaning
+        if ": " in val or val.endswith(":"):
+            msgs.append("frontmatter %r contains an unquoted colon (': ') -- quote "
+                        "the value, or a strict YAML parser turns the tail into a "
+                        "nested mapping" % key)
+        if " #" in val:
+            msgs.append("frontmatter %r contains an unquoted ' #', which starts a "
+                        "comment" % key)
+        if val.startswith(("[", "{")) and not val.endswith(("]", "}")):
+            msgs.append("frontmatter %r looks like an unclosed flow collection" % key)
+    for required in ("name", "description"):
+        if not seen.get(required):
+            msgs.append("frontmatter is missing a non-empty %r" % required)
+    desc = seen.get("description", "").strip("\"'")
+    if desc and len(desc) > 1024:
+        msgs.append("description is %d chars; the Agent Skills spec allows 1024"
+                    % len(desc))
+    return (not msgs), msgs
+
+
 # ------------------------------------------------------------------- main ----
 
 def run_checks(verbose=True):
@@ -509,6 +578,7 @@ def run_checks(verbose=True):
         ("documented --flags vs argparse options", check_flags(options)),
         ("documented script paths exist", check_scripts_exist()),
         ("axis A x axis B routes are distinct", check_routes()),
+        ("SKILL.md frontmatter parses as YAML", check_frontmatter()),
     ]
     failed = 0
     for title, (ok, msgs) in checks:

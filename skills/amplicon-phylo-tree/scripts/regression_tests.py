@@ -1252,6 +1252,47 @@ def t_m4b(tmp):
     return True, "18S and ITS are arbitrated in writing, with the alternatives named"
 
 
+@test("M11b", "the SKILL.md frontmatter must survive a STRICT YAML parser")
+def t_m11b(tmp):
+    """Regression for a defect that made the skill invisible to every client using
+    the universal skills CLI: an unquoted colon in `description`
+    ("Chinese trigger words: ...") is invalid YAML.  A line-based validator accepts
+    it, a real parser rejects the whole skill, so the check must be part of the
+    repo's own tooling."""
+    CC = os.path.join(HERE, "check_consistency.py")
+    sys.path.insert(0, HERE)
+    import check_consistency as C
+    ok, msgs = C.check_frontmatter()
+    if not ok:
+        return False, ("the live SKILL.md frontmatter is not valid YAML:\n  - %s"
+                       % "\n  - ".join(msgs))
+
+    # reverse control: an injected unquoted colon must be caught
+    skill = os.path.dirname(HERE)
+    stage = os.path.join(tmp, "skill")
+    shutil.copytree(skill, stage,
+                    ignore=shutil.ignore_patterns("__pycache__", "assets", "agents"))
+    path = os.path.join(stage, "SKILL.md")
+    text = open(path, encoding="utf-8").read()
+    broken = text.replace("name: amplicon-phylo-tree",
+                          "name: amplicon-phylo-tree\nnote: see the docs: here",
+                          1)
+    if broken == text:
+        return False, "could not inject the defect"
+    write(path, broken)
+    code, out = run([os.path.join(stage, "scripts", "check_consistency.py")])
+    if code == 0 or "unquoted colon" not in out:
+        return False, ("an unquoted colon in the frontmatter was not caught:\n" + out)
+
+    # and a missing description must be caught too
+    write(path, text.replace("description: '", "notdescription: '", 1))
+    code2, out2 = run([os.path.join(stage, "scripts", "check_consistency.py")])
+    if code2 == 0 or "missing a non-empty" not in out2:
+        return False, "a missing description was not caught:\n" + out2
+    return True, ("the live frontmatter parses; a planted unquoted colon and a "
+                  "missing description are both caught")
+
+
 # ------------------------------------------------------------------ runner ---
 
 

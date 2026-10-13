@@ -19,11 +19,15 @@ exit code, and every override leaves a trace.
 
 ## Install
 
-**Any Agent Skills client** (the [skills CLI](https://github.com/vercel-labs/skills); this
-repository is indexed by [skills.sh](https://skills.sh)):
+**Any of 42+ agents** through the universal [Skills CLI](https://github.com/vercel-labs/skills)
+(this repository is indexed by [skills.sh](https://skills.sh)):
 
 ```bash
-npx skills add mumu-sci/amplicon-phylo-tree --skill amplicon-phylo-tree
+# install into every agent it detects, keeping the skill available everywhere
+npx skills add mumu-sci/amplicon-phylo-tree@amplicon-phylo-tree -g
+
+# or pick the target yourself
+npx skills add mumu-sci/amplicon-phylo-tree@amplicon-phylo-tree --agent claude-code
 ```
 
 **Claude Code plugin marketplace:**
@@ -47,8 +51,26 @@ The folder **must** stay named `amplicon-phylo-tree`: that name has to match the
 cd <your-skills-dir>/amplicon-phylo-tree
 python scripts/selftest.py            # coordinate, stop and genetic-code contract
 python scripts/check_consistency.py   # documentation vs scripts agree
-python scripts/regression_tests.py    # 36 black-box regression tests
+python scripts/regression_tests.py    # black-box regression tests
 ```
+
+### Where each client looks
+
+Basic `SKILL.md` skills are portable, but every client scans its own directories —
+this table is the reason the same folder can serve all of them:
+
+| Client | Project-level | User-level |
+|---|---|---|
+| **OpenCode** | `.opencode/skills/` or `.agents/skills/` | `~/.config/opencode/skills/` or `~/.agents/skills/` |
+| **Claude Code** | `.claude/skills/` | `~/.claude/skills/` |
+| **Codex** | `.agents/skills/` | `~/.codex/skills/` |
+| **Cursor** | `.agents/skills/` | `~/.cursor/skills/` |
+| **Cline** | `.agents/skills/` | `~/.agents/skills/` |
+| **Windsurf** | `.windsurf/skills/` | `~/.codeium/windsurf/skills/` |
+| **DSH** | `.dsh/skills/` or `.agents/skills/` | `~/.dsh/skills/` or `~/.agents/skills/` |
+
+`.agents/skills/` is the de-facto shared location: OpenCode, Codex, Cursor, Cline
+and DSH all read it. Installing there once covers all of them.
 
 ### DeepSeek Harness (DSH)
 
@@ -60,7 +82,7 @@ The most convenient one-liners:
 # user-level (rank 500, the default place for personal skills)
 git clone --depth 1 https://github.com/mumu-sci/amplicon-phylo-tree /tmp/aph \
   && cp -r /tmp/aph/skills/amplicon-phylo-tree ~/.agents/skills/ \
-  && rm -rf /tmp/aph/skills/amplicon-phylo-tree/__pycache__
+  && rm -rf ~/.agents/skills/amplicon-phylo-tree/__pycache__
 ```
 
 ```powershell
@@ -72,7 +94,7 @@ pwsh -File $env:TEMP\aph\install.ps1           # or:  bash install.sh
 The installer (`install.sh` / `install.ps1`, both at the repository root) picks the
 right root, refuses to overwrite a copy you have edited, strips `__pycache__` (a
 `.pyc` embeds the absolute path of the machine that created it), and then runs the
-three verification commands above on what it installed.
+verification commands above on what it installed.
 
 **Where DSH looks, in priority order** (the loader scans these roots and the first
 match wins):
