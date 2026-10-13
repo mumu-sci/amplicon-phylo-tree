@@ -72,50 +72,24 @@ this table is the reason the same folder can serve all of them:
 `.agents/skills/` is the de-facto shared location: OpenCode, Codex, Cursor, Cline
 and DSH all read it. Installing there once covers all of them.
 
-### DeepSeek Harness (DSH)
-
-DSH has no skill marketplace: it discovers skills by scanning fixed directories for
-`<name>/SKILL.md`. So installation means placing the folder in one of those roots.
-The most convenient one-liners:
+**Installing per client** — `install.sh` / `install.ps1` (repository root) put the
+folder in the right root for you:
 
 ```bash
-# user-level (rank 500, the default place for personal skills)
-git clone --depth 1 https://github.com/mumu-sci/amplicon-phylo-tree /tmp/aph \
-  && cp -r /tmp/aph/skills/amplicon-phylo-tree ~/.agents/skills/ \
-  && rm -rf ~/.agents/skills/amplicon-phylo-tree/__pycache__
+bash install.sh                 # auto-detect a skills root
+bash install.sh --project       # ./.agents/skills
 ```
 
 ```powershell
-# the same thing through the bundled installer, which also verifies what it copied
-git clone --depth 1 https://github.com/mumu-sci/amplicon-phylo-tree $env:TEMP\aph
-pwsh -File $env:TEMP\aph\install.ps1           # or:  bash install.sh
+pwsh -File install.ps1
 ```
 
-The installer (`install.sh` / `install.ps1`, both at the repository root) picks the
-right root, refuses to overwrite a copy you have edited, strips `__pycache__` (a
-`.pyc` embeds the absolute path of the machine that created it), and then runs the
-verification commands above on what it installed.
+They refuse to overwrite a copy you have edited, strip `__pycache__` (a `.pyc`
+embeds the absolute path of the machine that created it), and verify what they
+installed.
 
-**Where DSH looks, in priority order** (the loader scans these roots and the first
-match wins):
-
-| Rank | Source | Path |
-|---|---|---|
-| 100 | project `.dsh` | `<project root>/.dsh/skills` |
-| 200 | project `.agents` | `<project root>/.agents/skills` |
-| 300 | custom | your `customSkillDirs` configuration |
-| 400 | user `.dsh` | `~/.dsh/skills` |
-| 500 | user `.agents` | `~/.agents/skills` (respects `DSH_AGENTS_HOME`) |
-| 600 | bundled | ships with the client (`bundledSkillDir` / `DSH_BUNDLED_SKILL_DIR`) |
-
-A project root is the nearest ancestor containing `.git`. Use the project rows to
-pin a specific version to one project (`bash install.sh --project`), and the user
-rows to make the skill available everywhere.
-
-> Rank 600 is the only way a skill reaches *every* DSH user without them doing
-> anything, and that list is maintained inside the client distribution — it is not
-> something a third party can add to. If you think this skill belongs there, say so
-> in an issue here and we can take it to the client maintainers together.
+Per-client directory details (including DSH's scan order and the frontmatter keys it
+accepts): [`INSTALL.md`](INSTALL.md).
 
 ## What it is, and what it is not
 
@@ -134,9 +108,11 @@ to back it up.
 ```
 amplicon-phylo-tree/
 ├── README.md / README.zh.md      this file, in English and Chinese
+├── INSTALL.md                    per-client install locations and DSH specifics
 ├── LICENSE                       MIT
 ├── CHANGELOG.md                  what changed, including the defects that were fixed
 ├── PRE_UPLOAD_CHECKLIST.md       the checklist this repository is released against
+├── install.sh / install.ps1      install into the right skills root and verify it
 ├── .github/workflows/verify.yml  CI: self-test, consistency, regression, smoke test
 ├── .claude-plugin/plugin.json    Claude Code plugin metadata
 └── skills/amplicon-phylo-tree/   the skill: SKILL.md, scripts/, references/, assets/
